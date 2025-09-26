@@ -31,7 +31,6 @@ properties_list  = [
     "data_month",
     "portfolio_management_services_name"
 ]
-stocks_objects = pe.get_stock_info_from_xlsx(pe.STOCK_INFO_PATH)
 
 class AppWeaviateClient:
     def __init__(self, host: str = "localhost", port: int = 8080, grpc_port: int = 50051):
@@ -105,35 +104,67 @@ class WeaviateCollection:
             return
         vector_config = [
             wc.Configure.Vectors.text2vec_ollama(
-            name="stock_name_industry_pms_month_vector",
-            source_properties= VECTOR_NAMES,
-            api_endpoint=OLLAMA_API_URL,
-            model=EMBEDDING_MODEL,
-            vector_index_config=Configure.VectorIndex.hnsw(
-                distance_metric=VectorDistances.COSINE,
-                ef_construction=128,
-                max_connections=128,
-                quantizer=Configure.VectorIndex.Quantizer.bq(),
-                ef=-1,
-                dynamic_ef_factor=15,
-                dynamic_ef_min=200,
-                dynamic_ef_max=1000,
+                name="company_or_stock_name",
+                source_properties= ["company_or_stock_name"],
+                api_endpoint=OLLAMA_API_URL,
+                model=EMBEDDING_MODEL,
+                vector_index_config=Configure.VectorIndex.hnsw(
+                    distance_metric=VectorDistances.COSINE,
+                    ef_construction=128,
+                    max_connections=128,
+                    quantizer=Configure.VectorIndex.Quantizer.bq(),
+                    ef=-1,
+                    dynamic_ef_factor=15,
+                    dynamic_ef_min=200,
+                    dynamic_ef_max=1000,
+                ),
             ),
-            )
+            wc.Configure.Vectors.text2vec_ollama(
+                name="industry_sector",
+                source_properties= ["industry_sector"],
+                api_endpoint=OLLAMA_API_URL,
+                model=EMBEDDING_MODEL,
+                vector_index_config=Configure.VectorIndex.hnsw(
+                    distance_metric=VectorDistances.COSINE,
+                    ef_construction=128,
+                    max_connections=128,
+                    quantizer=Configure.VectorIndex.Quantizer.bq(),
+                    ef=-1,
+                    dynamic_ef_factor=15,
+                    dynamic_ef_min=200,
+                    dynamic_ef_max=1000,
+                ),
+            ),
+            wc.Configure.Vectors.text2vec_ollama(
+                name="portfolio_management_services_name",
+                source_properties= ["portfolio_management_services_name"],
+                api_endpoint=OLLAMA_API_URL,
+                model=EMBEDDING_MODEL,
+                vector_index_config=Configure.VectorIndex.hnsw(
+                    distance_metric=VectorDistances.COSINE,
+                    ef_construction=128,
+                    max_connections=128,
+                    quantizer=Configure.VectorIndex.Quantizer.bq(),
+                    ef=-1,
+                    dynamic_ef_factor=15,
+                    dynamic_ef_min=200,
+                    dynamic_ef_max=1000,
+                ),
+            ),
+
         ]
 
         self.client.collections.create(
             name=collection_name,
             properties=[
-            # Enable keyword indexing on relevant text properties
-            
-            wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER),
-            wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER),
-            wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER),
-            wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+                # Enable keyword indexing on relevant text properties
+                wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+                wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+                wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER),
+                wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER),
+                wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER),
+                wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+                wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
             ],
             vector_config=vector_config,
         )
@@ -182,7 +213,7 @@ class WeaviateCollection:
             print(f"Number of failed imports: {len(failed_objects)}")
             print(f"First failed object: {failed_objects[0]}")
 
-    def retrieve_objects_for_query(self, collection_name: str, user_query: str) -> QueryReturn:
+    def retrieve_objects_for_query(self, collection_name: str, user_query: str, target_vector: str) -> QueryReturn:
         """
         Queries and prints objects from a collection using a near-text search.
         Args:
@@ -198,11 +229,13 @@ class WeaviateCollection:
 
             response = collection.query.hybrid(
                 query=user_query,
-                query_properties=VECTOR_NAMES,
+                # query_properties=VECTOR_NAMES,
+                query_properties=[target_vector],
                 max_vector_distance=0.6,
                 limit=100,
                 alpha=0.5,
-                target_vector="stock_name_industry_pms_month_vector",
+                # target_vector="stock_name_industry_pms_month_vector",
+                target_vector=target_vector,
                 return_metadata=wq.MetadataQuery(score=True, explain_score=True),
                 return_properties=properties_list,
             )
@@ -214,38 +247,34 @@ class WeaviateCollection:
         # print(f"Query response: {response}")
         return response
 
-async def get_context_from_vector_db(user_query: str) -> list[dict[str, str]]:
+keys = ["company_or_stock_name", "industry_sector", "asset_under_managment_percentage", "data_month", "portfolio_management_services_name"]
+async def get_context_from_vector_db(user_query_str: str) -> list[dict[str, str]]:
     db_config  = {"host": "127.0.0.1", "port": 80, "grpc_port": 50051}
     COLLECTION_NAME = "StocksInfo"
     context_list = []
-    total_count = 1
-    select_count = 0
+    user_query = json.loads(user_query_str) if isinstance(user_query_str, str) else user_query_str
     with AppWeaviateClient(**db_config) as cl:
         col = WeaviateCollection(client=cl)
-        user_query = user_query.strip()
-        response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower())
-        if not response or not response.objects:
-            return context_list
+        target_vector = "company_or_stock_name"
+        if isinstance(user_query, dict):
+            for key in keys:
+                if key in user_query and user_query[key]:
+                    target_vector = key
+                    print(f"target_vector: {target_vector}\n")
+                    response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query_str.lower(), target_vector)
+                    if not response or not response.objects:
+                        return context_list
+                    for obj in response.objects:
+                        score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
+                        if score < 0.3:
+                            continue
+                        
+                        obj_str = json.dumps(obj.properties)
+                        
+                        context_list.append(obj_str)
+        else:
+            print(f"user_query is not a dictionary. {user_query}\n")
 
-        for obj in response.objects:
-            total_count += 1
-            # print(f"============= Total Count : {total_count} =========================\n")
-            score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
-            if score < 0.3:
-                continue
-            
-            select_count += 1
-            print(f"============= Selected Count :  {select_count} =========================\n")
-            # print(f"Hybrid score - explain: {obj.metadata.score:.3f} - {obj.metadata.explain_score}\n")
-            # print(f"======================================\n")
-            score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
-            obj_str = json.dumps(obj.properties)
-            print(f"Object: {obj_str}\n")
-            context_list.append(obj_str)
-        
-        print(f"============= Total: {total_count}   Selected :  {select_count} =========================\n")
-        total_count = 1
-        select_count = 0
         return context_list
 
 
@@ -271,6 +300,7 @@ def db_test():
             if action == "1":
                 COLLECTION_NAME = input("Enter collection name (default 'StocksInfo'): ").strip() or "StocksInfo"
                 col.create_collection(COLLECTION_NAME)
+                stocks_objects = pe.get_stock_info_from_xlsx(pe.STOCK_INFO_PATH)
                 col.insert_objects_into_collection(COLLECTION_NAME, stocks_objects)
                 print(f"Collection '{COLLECTION_NAME}' created and objects inserted.")
             elif action == "2":
@@ -283,7 +313,7 @@ def db_test():
             elif action == "3":
                 COLLECTION_NAME = input("Enter collection name (default 'StocksInfo'): ").strip() or "StocksInfo"
                 user_query = input("Enter your query: ").strip()
-                response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower()
+                response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower(), target_vector="company_or_stock_name"
                 )
                 if not response or not response.objects:
                     print("No results found.")
