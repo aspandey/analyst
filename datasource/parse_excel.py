@@ -4,7 +4,7 @@ import os
 import glob
 
 HOME_DIR = os.path.expanduser("~")
-STOCK_INFO_PATH = os.path.join(HOME_DIR, "factory/public/analyst/stocks_xlsx/")
+STOCK_INFO_PATH = os.path.join(HOME_DIR, "factory/public/stocks_xlsx/")
 
 def parse_xlsx_to_dicts(file_path: str) -> List[Dict]:
     """
