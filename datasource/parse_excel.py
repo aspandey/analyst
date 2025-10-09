@@ -4,7 +4,7 @@ import os
 import glob
 
 HOME_DIR = os.path.expanduser("~")
-STOCK_INFO_PATH = os.path.join(HOME_DIR, "factory/public/analyst/stocks_xlsx/")
+STOCK_INFO_PATH = os.path.join(HOME_DIR, "factory/public/stocks_xlsx/")
 
 def parse_xlsx_to_dicts(file_path: str) -> List[Dict]:
     """
@@ -22,10 +22,7 @@ def parse_xlsx_to_dicts(file_path: str) -> List[Dict]:
             records.append(record)
     return records
 
-def add_pms_name_and_month(List_of_dicts: List[Dict]) -> List[Dict]:
-    """
-    Add 'pms_name' and 'month' fields to each dictionary in the list.
-    """
+def clean_row_text(List_of_dicts: List[Dict]) -> List[Dict]:
     stocks_info : List[dict] = []
     for record in List_of_dicts:
         clean_row = {str(k).replace('\n', '').lower(): str(v).replace('\n', '').lower() if isinstance(v, str) else v for k, v in record.items()}
@@ -34,20 +31,19 @@ def add_pms_name_and_month(List_of_dicts: List[Dict]) -> List[Dict]:
 
 def get_stock_info_from_xlsx(xls_folder_path: str) -> List[Dict[str, str]]:
     """
-    Get stock information from an Excel file and add 'pms_name' and 'month' fields.
+    Get stock information from an Excel files.
     """
     stocks_info = []
     excel_files = glob.glob(os.path.join(xls_folder_path, "*.xls*"))
     for file_path in excel_files:
         print(f"Processing file: {file_path}")
         rows = parse_xlsx_to_dicts(file_path)
-        stocks_info.extend(add_pms_name_and_month(rows))
+        stocks_info.extend(clean_row_text(rows))
     return stocks_info
 
 if __name__ == "__main__":
-    
-    rows = get_stock_info_from_xlsx(STOCK_INFO_PATH)
-    stocks_info = add_pms_name_and_month(rows)
+
+    stocks_info = get_stock_info_from_xlsx(STOCK_INFO_PATH)
 
     for row in stocks_info:        
         print(row)

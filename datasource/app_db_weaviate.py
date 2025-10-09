@@ -7,6 +7,7 @@ import weaviate.classes.query as wq
 from typing import Optional
 from datasource.parse_excel import get_stock_info_from_xlsx
 import datasource.parse_excel as pe
+import data_optimizer.data_preprocessing as data
 
 import json
 import weaviate.classes.config as wc
@@ -31,7 +32,6 @@ properties_list  = [
     "data_month",
     "portfolio_management_services_name"
 ]
-stocks_objects = pe.get_stock_info_from_xlsx(pe.STOCK_INFO_PATH)
 
 class AppWeaviateClient:
     def __init__(self, host: str = "localhost", port: int = 8080, grpc_port: int = 50051):
@@ -89,7 +89,7 @@ class WeaviateCollection:
         for collection in collections:
             names.append(collection)
         return names
-    # VECTOR_NAMES = ["stock_name", "industry", "pms_name", "month"]
+    
     def create_collection(self, collection_name: str = "COLLECTION_NAME") -> None:
         """
         Creates a Weaviate collection with the specified configuration.
@@ -105,35 +105,32 @@ class WeaviateCollection:
             return
         vector_config = [
             wc.Configure.Vectors.text2vec_ollama(
-            name="stock_name_industry_pms_month_vector",
-            source_properties= VECTOR_NAMES,
-            api_endpoint=OLLAMA_API_URL,
-            model=EMBEDDING_MODEL,
-            vector_index_config=Configure.VectorIndex.hnsw(
-                distance_metric=VectorDistances.COSINE,
-                ef_construction=128,
-                max_connections=128,
-                quantizer=Configure.VectorIndex.Quantizer.bq(),
-                ef=-1,
-                dynamic_ef_factor=15,
-                dynamic_ef_min=200,
-                dynamic_ef_max=1000,
+                name="company_info",
+                # source_properties= VECTOR_NAMES,
+                source_properties= ["combined_text"],
+                api_endpoint=OLLAMA_API_URL,
+                model=EMBEDDING_MODEL,
+                vector_index_config=Configure.VectorIndex.hnsw(
+                    distance_metric=VectorDistances.COSINE,
+                    ef_construction=128,
+                    max_connections=32,
+                    quantizer=Configure.VectorIndex.Quantizer.bq(),
+                    ef=64,
+                ),
             ),
-            )
         ]
-
         self.client.collections.create(
             name=collection_name,
             properties=[
-            # Enable keyword indexing on relevant text properties
-            
-            wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER),
-            wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER),
-            wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER),
-            wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+                # Enable keyword indexing (inverted index) on relevant text properties
+                wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True),
+                wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True),
+                wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True),
+                wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True),
+                wc.Property(name="combined_text", data_type=wc.DataType.TEXT, index_searchable=True),
+                wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
+                wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
+                wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
             ],
             vector_config=vector_config,
         )
@@ -182,7 +179,7 @@ class WeaviateCollection:
             print(f"Number of failed imports: {len(failed_objects)}")
             print(f"First failed object: {failed_objects[0]}")
 
-    def retrieve_objects_for_query(self, collection_name: str, user_query: str) -> QueryReturn:
+    def retrieve_objects_for_query(self, collection_name: str, user_query: str, target_vector: str = "company_info") -> QueryReturn:
         """
         Queries and prints objects from a collection using a near-text search.
         Args:
@@ -195,66 +192,113 @@ class WeaviateCollection:
             if not collection_name:
                 raise ValueError("Collection name cannot be empty.")
             collection = self.client.collections.get(collection_name)
-
             response = collection.query.hybrid(
                 query=user_query,
                 query_properties=VECTOR_NAMES,
-                max_vector_distance=0.6,
-                limit=100,
-                alpha=0.5,
-                target_vector="stock_name_industry_pms_month_vector",
+                max_vector_distance=0.5,
+                alpha=0.7,
+                target_vector=target_vector,
                 return_metadata=wq.MetadataQuery(score=True, explain_score=True),
-                return_properties=properties_list,
+                return_properties=["combined_text"],
             )
-
         except Exception as e:
             print(f"Error retrieving objects for query: {e}")
             response = None
-        
-        # print(f"Query response: {response}")
         return response
 
-async def get_context_from_vector_db(user_query: str) -> list[dict[str, str]]:
+    def list_objects(self, objects_num: int = 5) -> None:
+        """
+        Lists a specified number of objects from the collection.
+        Args:
+            objects_num (int): Number of objects to list.
+        """
+        if not self.client:
+            raise ValueError("Weaviate client is not connected. Call connect() first.")
+        if objects_num <= 0:
+            raise ValueError("Number of objects must be a positive integer.")
+        collection = self.client.collections.get(COLLECTION_NAME)
+        response = collection.query.fetch_objects(
+            limit=objects_num,
+            # include_vector=True,
+            return_properties=properties_list,
+        )
+        if not response or not response.objects:
+            print("No objects found in the collection.")
+            return
+        for obj in response.objects:
+            print(f"\n {obj.properties.get("company_or_stock_name")}")
+        print(f"Total {len(response.objects)} objects retrieved from collection '{COLLECTION_NAME}'")
+
+def format_investment_summary(data_dict: dict[str, str]) -> str:
+    """
+    Converts a dictionary containing financial data into a human-readable summary string.
+
+    Args:
+        data_dict: A dictionary containing specific keys like 'company_or_stock_name',
+                   'industry_sector', 'data_month', etc.
+
+    Returns:
+        A formatted string summarizing the investment data.
+    """
+    try:
+        # Extract the values from the dictionary, converting names to title case for readability
+        # company = data_dict["company_or_stock_name"].title()
+        # sector = data_dict["industry_sector"]
+        # month = data_dict["data_month"]
+        # pms_name = data_dict["portfolio_management_services_name"].title()
+        # aum_percentage = data_dict["asset_under_managment_percentage"]
+        # shares_quantity = data_dict["quantity_of_shares"]
+        # market_value = data_dict["market_value_lacs_inr"]
+        combined_text = data_dict.get("combined_text", "")
+        # Use an f-string for clear, concise string construction
+        # summary_string = (
+        #     f"{company} works in {sector} sector "
+        #     f"month: {month}, pms: {pms_name},  aum percentage: {aum_percentage},"
+        #     f"quantity of shares: {shares_quantity}, value in INR: {market_value}"
+        # )
+
+        # return summary_string
+        return combined_text
+
+    except KeyError as e:
+        return f"Error: Missing key in input data: {e}. Cannot generate summary."
+    except Exception as e:
+        return f"An unexpected error occurred: {e}"
+
+    
+# async def get_context_from_vector_db(user_query_str: str) -> list[dict[str, str]]:
+async def get_context_from_vector_db(user_query_str: str) -> list[str]:
     db_config  = {"host": "127.0.0.1", "port": 80, "grpc_port": 50051}
     COLLECTION_NAME = "StocksInfo"
     context_list = []
-    total_count = 1
-    select_count = 0
+    count = 1
+    select  = 1
     with AppWeaviateClient(**db_config) as cl:
         col = WeaviateCollection(client=cl)
-        user_query = user_query.strip()
-        response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower())
+        response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query_str.lower())
         if not response or not response.objects:
             return context_list
-
         for obj in response.objects:
-            total_count += 1
-            # print(f"============= Total Count : {total_count} =========================\n")
+            count += 1
             score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
             if score < 0.3:
                 continue
             
-            select_count += 1
-            print(f"============= Selected Count :  {select_count} =========================\n")
-            # print(f"Hybrid score - explain: {obj.metadata.score:.3f} - {obj.metadata.explain_score}\n")
-            # print(f"======================================\n")
-            score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
-            obj_str = json.dumps(obj.properties)
-            print(f"Object: {obj_str}\n")
-            context_list.append(obj_str)
+            select += 1
+            stocks_str = format_investment_summary(obj.properties)
+            print(f"Object from Vector DB: {stocks_str} \n")
+            context_list.append(stocks_str)
         
-        print(f"============= Total: {total_count}   Selected :  {select_count} =========================\n")
-        total_count = 1
-        select_count = 0
-        return context_list
-
+        print(f"Total {count} objects retrieved from Vector DB")
+        print(f"Total {select} objects selected from Vector DB")
+    return context_list
 
 # =============== TEST CODE ======================
 # p3 -m datasource.app_db_weaviate
 # ================================================
 def db_test():
     db_config  = {"host": "127.0.0.1", "port": 80, "grpc_port": 50051}
-
+    COLLECTION_NAME = "StocksInfo"
     with AppWeaviateClient(**db_config) as cl:
         col = WeaviateCollection(client=cl)
         while True:
@@ -264,15 +308,22 @@ def db_test():
             print("3 - Retrieve objects for a query")
             print("4 - List all collections")
             print("5 - Get Collection config")
-            print("6 - Exit the program")
+            print(f"6 - Fetch objects from collection:")
+            print("7 - Exit the program")
             print("---------------------------------------------------")
-            action = input("Enter Action (1/2/3/4/5/6): ").strip()
-            COLLECTION_NAME = "StocksInfo"
+            action = input("Enter Action (1/2/3/4/5/6/7): ").strip()
+            
             if action == "1":
                 COLLECTION_NAME = input("Enter collection name (default 'StocksInfo'): ").strip() or "StocksInfo"
+                if COLLECTION_NAME in col.list_collection:
+                    print(f"Collection '{COLLECTION_NAME}' already exists. Please choose a different name or delete the existing collection first.")
+                    continue
                 col.create_collection(COLLECTION_NAME)
-                col.insert_objects_into_collection(COLLECTION_NAME, stocks_objects)
+                stocks_objects = pe.get_stock_info_from_xlsx(pe.STOCK_INFO_PATH)
+                processed_data = data.data_preprocess_stock(stocks_objects)
+                col.insert_objects_into_collection(COLLECTION_NAME, stocks_objects=processed_data)
                 print(f"Collection '{COLLECTION_NAME}' created and objects inserted.")
+
             elif action == "2":
                 COLLECTION_NAME = input("Enter collection name to delete : ").strip()
                 if not COLLECTION_NAME:
@@ -280,29 +331,37 @@ def db_test():
                     continue
                 col.delete_collection(COLLECTION_NAME)
                 print(f"Collection '{COLLECTION_NAME}' deleted (if it existed).")
+
             elif action == "3":
                 COLLECTION_NAME = input("Enter collection name (default 'StocksInfo'): ").strip() or "StocksInfo"
                 user_query = input("Enter your query: ").strip()
-                response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower()
-                )
+                response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower(), target_vector="company_info")
                 if not response or not response.objects:
                     print("No results found.")
                     continue
-                
+                count = 0
                 for obj in response.objects:
                     print(f"\n {obj} \n")
+                    count += 1
+                    print(f"count = {count}")
 
-            # print(obj.properties.get("description", "No title"))
             elif action == "4":
                 collections = col.list_collection
                 print("Collections in Weaviate:")
                 for c in collections:
                     print(f"- {c}")
+
             elif action == "5":
                 print(f"Collection config {col.get_config()}")
             elif action == "6":
-                metainfo = cl.get_meta()
-                print(json.dumps(metainfo, indent=2))
+                objects_num = input("How many objects you want to fetch (default 5): ").strip() or "5"
+                try:
+                    num = int(objects_num)
+                except ValueError:
+                    print("Invalid number. Please enter a valid integer.")
+                    continue
+                col.list_objects(objects_num=num)
+            elif action == "7":
                 print("Exiting the program.")
                 break
             else:
