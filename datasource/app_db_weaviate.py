@@ -3,6 +3,7 @@ from weaviate.classes.config import Configure
 from weaviate.client import WeaviateClient
 from weaviate.outputs.query import QueryReturn
 import weaviate.classes.query as wq
+from weaviate.classes.query import HybridFusion
 
 from typing import Optional
 from datasource.parse_excel import get_stock_info_from_xlsx
@@ -20,7 +21,8 @@ VECTOR_NAMES = [
     "company_or_stock_name",
     "industry_sector",
     "data_month",
-    "portfolio_management_services_name"
+    "portfolio_management_services_name",
+    "combined_text"
 ]
 
 properties_list  = [
@@ -121,13 +123,28 @@ class WeaviateCollection:
         ]
         self.client.collections.create(
             name=collection_name,
+            # properties=[
+            #     # Enable keyword indexing (inverted index) on relevant text properties
+            #     wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+            #     wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+            #     wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
+            #     wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True),
+
+            #     wc.Property(name="combined_text", data_type=wc.DataType.TEXT, index_searchable=True),
+                
+            #     wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
+            #     wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
+            #     wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
+            # ],
             properties=[
                 # Enable keyword indexing (inverted index) on relevant text properties
                 wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True),
                 wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True),
                 wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True),
                 wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True),
+
                 wc.Property(name="combined_text", data_type=wc.DataType.TEXT, index_searchable=True),
+                
                 wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
                 wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
                 wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
@@ -179,6 +196,17 @@ class WeaviateCollection:
             print(f"Number of failed imports: {len(failed_objects)}")
             print(f"First failed object: {failed_objects[0]}")
 
+
+    # from weaviate.collections.classes.grpc import HybridVector
+
+    # # Example: using certainty in a hybrid search
+    # vector = HybridVector.near_text("your query", certainty=0.8)
+    # response = client.collections.get("YourCollection").query.hybrid(
+    #     query="your query",
+    #     vector=vector,
+    #     limit=5
+    # )
+
     def retrieve_objects_for_query(self, collection_name: str, user_query: str, target_vector: str = "company_info") -> QueryReturn:
         """
         Queries and prints objects from a collection using a near-text search.
@@ -194,11 +222,16 @@ class WeaviateCollection:
             collection = self.client.collections.get(collection_name)
             response = collection.query.hybrid(
                 query=user_query,
+                # vector= vector of the query to be used for vector seracg
                 query_properties=VECTOR_NAMES,
-                max_vector_distance=0.5,
+                max_vector_distance=0.4,
                 alpha=0.7,
+                # limit=5000,
+                fusion_type=HybridFusion.RELATIVE_SCORE,
+                auto_limit=True,
                 target_vector=target_vector,
-                return_metadata=wq.MetadataQuery(score=True, explain_score=True),
+                filters=None,
+                return_metadata=wq.MetadataQuery(score=True, explain_score=True, certainty=True),
                 return_properties=["combined_text"],
             )
         except Exception as e:
@@ -286,7 +319,7 @@ async def get_context_from_vector_db(user_query_str: str) -> list[str]:
             
             select += 1
             stocks_str = format_investment_summary(obj.properties)
-            print(f"Object from Vector DB: {stocks_str} \n")
+            # print(f"Object from Vector DB: {stocks_str} \n")
             context_list.append(stocks_str)
         
         print(f"Total {count} objects retrieved from Vector DB")
