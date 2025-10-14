@@ -1,6 +1,8 @@
 import json
 from datetime import datetime
-from query_transformer import query_rewriter, query_expander, query_decomposer, query_classifier
+from query_transformer import query_classifier, query_transformer, query_optimizer
+from prompts.query_prompt import QUERY_TRANS_PROMPT
+import asyncio
 
 # List of test queries
 test_queries = [
@@ -26,37 +28,32 @@ test_queries = [
     "I’m trying to figure out which companies in the finance industry were part of Helios PMS portfolio, and also check for the months of July and August, including their share quantities and market values if possible.",
 ]
 
-def run_tests():
+async def run_tests():
     print("\n================= Query Transformation Tests =================\n")
 
     results = []
 
     for i, query in enumerate(test_queries, start=1):
-        # query_class = ""
-        rewritten = ""
-        expanded = ""
-        decomposed = ""
+        query_class = ""
+
         print(f"\n================= Query {i} =================")
         print(f"User Query: {query}\n")
 
-        query_class = query_classifier(query)
+        query_class = await query_classifier(query)
         print(f"🔹 Query class:\n{query_class}\n")
-        if query_class == "rewrite":
-            rewritten = query_rewriter(query)
-        elif query_class == "expand":
-            expanded = query_expander(query)
-        elif query_class == "decompose":
-            decomposed = query_decomposer(query)
+        if query_class not in ["rewrite", "expand", "decompose"]:
+            query_class = "rewrite"
+
+        transformed_query =  await query_transformer(query, QUERY_TRANS_PROMPT[query_class])
 
         print("------------------------------------------------------")
 
         results.append({
             "query_number": i,
             "user_query": query,
-            "rewritten_query": rewritten,
-            "expanded_query": expanded,
-            "decomposed_query": decomposed,
-            "query_class" : query_class
+            "query_class" : query_class,
+            "transformed_query": transformed_query,
+            
         })
 
     json_filename = f"query_transformation_results_{datetime.now().strftime('%Y%m%d_%H%M%S')}.json"
@@ -67,4 +64,4 @@ def run_tests():
 
 
 if __name__ == "__main__":
-    run_tests()
+    asyncio.run(run_tests())

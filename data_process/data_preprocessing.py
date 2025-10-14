@@ -1,5 +1,5 @@
 import re
-import datasource.parse_excel as pe
+import data_process.parse_xlsx_sheet as pe
 
 def data_normalize_text(text: str) -> str:
     if not text:
@@ -82,6 +82,7 @@ def data_preprocess_stock(stocks_info: list[dict[str, str]]) -> list[dict[str, s
 
     return processed_data
 
+# Test code
 if __name__ == "__main__":
     stocks_info = pe.get_stock_info_from_xlsx(pe.STOCK_INFO_PATH)
     processed_data = data_preprocess_stock(stocks_info)

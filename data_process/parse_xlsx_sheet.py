@@ -41,9 +41,9 @@ def get_stock_info_from_xlsx(xls_folder_path: str) -> List[Dict[str, str]]:
         stocks_info.extend(clean_row_text(rows))
     return stocks_info
 
+
+# Test code
 if __name__ == "__main__":
-
     stocks_info = get_stock_info_from_xlsx(STOCK_INFO_PATH)
-
     for row in stocks_info:        
         print(row)

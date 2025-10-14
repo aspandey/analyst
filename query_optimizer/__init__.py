@@ -1,3 +1,2 @@
 import query_optimizer.query_transformer
-import query_optimizer.query_optimizer
-import query_optimizer.query_prompt
+import prompts.query_prompt

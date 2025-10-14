@@ -17,6 +17,7 @@ QUERY_REWRITER_PROMPT = "You are a Query Rewriter for a vector search engine. " 
         "Example: 'Show holdings of HDFC Bank in July managed by Helios PMS' → " \
         "'HDFC Bank, July, Helios PMS'."
 
+
 QUERY_EXPENDER_PROMPT = "You are a Query Expander for a vector search engine. " \
         "The vector database has the following schema: " \
         "`company_or_stock_name`, `industry_sector`, `data_month`, `portfolio_management_services_name`. " \
@@ -27,6 +28,7 @@ QUERY_EXPENDER_PROMPT = "You are a Query Expander for a vector search engine. " 
         "Keep the output short and focused — a comma-separated list of meaningful terms only." \
         "Provide maximum 3 comma-separated items in the list" \
         "Example: 'companies in finance sector' → 'finance companies, financial institutions, banking sector, finance industry'."
+
 
 QUERY_DECOMPOSER_PROMPT = "You are a Query Decomposer for a vector search engine. Break complex user queries into smaller, focused sub-queries. " \
         "The vector database has the following schema: " \
