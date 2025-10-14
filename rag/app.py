@@ -4,7 +4,7 @@ from langchain_core.messages import SystemMessage
 from langchain_ollama import ChatOllama
 
 import datasource.app_db_weaviate as ds
-import datasource.query_optimizer as qo
+import query_optimizer.query_transformer as qo
 
 llm = ChatOllama(
     model="llama3.2:latest",

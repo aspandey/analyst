@@ -1,13 +1,6 @@
 import re
 import datasource.parse_excel as pe
 
-# company_or_stock_name	industry_sector	 quantity_of_shares 	 market_value_lacs_inr 	 asset_under_managment_percentage 	 data_month 	 portfolio_management_services_name 
-# Vishal Mega Mart Ltd.	Retailing	  637,699 	  950.24 	  2.74 	 September 	 Helio 
-# Hero MotoCorp Ltd.	Automobiles	  17,120 	  936.89 	  2.70 	 September 	 Helio 
-# Fortis Healthcare Ltd.	Healthcare Services	  95,928 	  930.31 	  2.68 	 September 	 Helio 
-# Muthoot Finance Ltd.	Finance	  29,999 	  923.10 	  2.66 	 September 	 Helio 
-# company_or_stock_name	   industry_sector	 data_month 	 portfolio_management_services_name 
-
 def data_normalize_text(text: str) -> str:
     if not text:
         return ""

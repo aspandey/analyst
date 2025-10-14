@@ -123,19 +123,6 @@ class WeaviateCollection:
         ]
         self.client.collections.create(
             name=collection_name,
-            # properties=[
-            #     # Enable keyword indexing (inverted index) on relevant text properties
-            #     wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            #     wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            #     wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True, index_searchable=True),
-            #     wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True),
-
-            #     wc.Property(name="combined_text", data_type=wc.DataType.TEXT, index_searchable=True),
-                
-            #     wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-            #     wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-            #     wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-            # ],
             properties=[
                 # Enable keyword indexing (inverted index) on relevant text properties
                 wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True),
