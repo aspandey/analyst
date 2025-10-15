@@ -1,5 +1,6 @@
 import re
 import data_process.parse_xlsx_sheet as pe
+from debug.logger_config import dbg
 
 def data_normalize_text(text: str) -> str:
     if not text:
@@ -41,32 +42,26 @@ def data_normalize_sector(sector: str) -> str:
 def data_preprocess_stock(stocks_info: list[dict[str, str]]) -> list[dict[str, str]]:
     """
     Preprocess and enrich stock data for vector insertion in Weaviate.
-    Adds normalized text and a combined_text field.
+    Adds normalized fields and a combined_text field.
     """
+    def format_field(value: str, suffix: str = "") -> str:
+        return f"{value} {suffix}".strip() if value else ""
 
     processed_data = []
-
     for item in stocks_info:
         company = data_normalize_text(item.get("company_or_stock_name", ""))
         sector = data_normalize_sector(item.get("industry_sector", ""))
         sector = data_normalize_text(sector)
         pms = data_normalize_text(item.get("portfolio_management_services_name", ""))
         month = data_normalize_text(item.get("data_month", ""))
-        
-        # Convert numeric values to text for embedding
-        qty = item.get("quantity_of_shares", "")
-        qty_text = f"{qty} shares" if qty else ""
-        
-        value = item.get("market_value_lacs_inr", "")
-        value_text = f"market value {value} lakh INR" if value else ""
-        
-        aum = item.get("asset_under_managment_percentage", "")
-        aum_text = f"{aum} percent of total assets of pms" if aum else ""
-        
-        # Create a rich semantic text representation
+
+        qty_text = format_field(item.get("quantity_of_shares", ""), "shares")
+        value_text = format_field(item.get("market_value_lacs_inr", ""), "market value lakh INR")
+        aum_text = format_field(item.get("asset_under_managment_percentage", ""), "percent of total assets of pms")
+
         combined_text = (
-            f"{company} works in {sector} sector. {pms} pms holds {qty_text} of {company} in the month of {month} with {value_text}, \
-            representing {aum_text}."
+            f"{company} works in {sector} sector. {pms} pms holds {qty_text} of {company} "
+            f"in the month of {month} with {value_text}, representing {aum_text}."
         ).strip()
 
         processed_data.append({

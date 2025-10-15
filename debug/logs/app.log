@@ -1,0 +1,8 @@
+2025-10-15 12:42:50,488 [INFO] (APP_LOGGER) [logger_config.py:39]: Custom logger 'APP_LOGGER' initialized. Log file path: /Users/soumyashreeswain/factory/public/analyst/debug/logs/app.log
+2025-10-15 12:43:01,275 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:47:16,881 [INFO] (APP_LOGGER) [logger_config.py:30]: Custom logger 'APP_LOGGER' initialized. Log file path: /Users/soumyashreeswain/factory/public/analyst/debug/logs/app.log
+2025-10-15 12:47:24,638 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:48:13,814 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:49:09,114 [INFO] (APP_LOGGER) [logger_config.py:30]: Custom logger 'APP_LOGGER' initialized. Log file path: /Users/soumyashreeswain/factory/public/analyst/debug/logs/app.log
+2025-10-15 12:49:10,049 [INFO] (APP_LOGGER) [logger_config.py:30]: Custom logger 'APP_LOGGER' initialized. Log file path: /Users/soumyashreeswain/factory/public/analyst/debug/logs/app.log
+2025-10-15 12:49:39,475 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello

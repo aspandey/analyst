@@ -3,7 +3,7 @@ from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 from langchain_ollama import ChatOllama
 import asyncio
-
+from debug.logger_config import dbg
 from prompts.query_prompt import QUERY_TRANS_PROMPT, QUERY_CLASSIFIER_PROPMT
 
 query_optimizer_llm = ChatOllama(
@@ -19,14 +19,18 @@ async def query_classifier(user_query: str) -> str:
     Classify the user query into one of the transformation types:
     'rewrite', 'expand', or 'decompose', using an LLM.
     """
+    dbg.info(f"Classifying user query: {user_query}")
     system_message = SystemMessage(content=QUERY_CLASSIFIER_PROPMT)
     human_message = HumanMessage(content=user_query)
 
     response = query_optimizer_llm.invoke([system_message, human_message])
+    dbg.debug(f"LLM response for classification: {response}")
     res = response.content
     classification  = res
 
+    dbg.info(f"Classification result: {classification}")
     if classification not in ["rewrite", "expand", "decompose"]:
+        dbg.warning(f"Unknown classification '{classification}', defaulting to 'rewrite'")
         classification = "rewrite"
 
     return classification
@@ -47,8 +51,11 @@ async def query_transformer(user_input: str, transformer: str) -> str:
     human_message = HumanMessage(content=user_input)
 
     response = query_optimizer_llm.invoke([system_message, human_message])
+    dbg.debug(f"LLM response for transformation: {response}")
     res = response.content
+
     if not isinstance(res, str):
+        dbg.warning(f"Transformation result is not a string: {res}, converting to string.")
         res = str(res)
     return res
 
@@ -67,16 +74,18 @@ async def query_optimizer(user_query: str) -> str:
         - Supported query types are "rewrite", "expand", and "decompose". If the type is not recognized, "rewrite" is used by default.
         - The actual transformation is performed asynchronously by `query_transformer` using a prompt specific to the query type.
     """
-
     optimized_query: str = ""
 
-    query_class = query_classifier(user_query)
-    print(f"🔹 Query class:\n{query_class}\n")
+    query_class = await query_classifier(user_query)
+    dbg.info(f"Query transformer class ............... {query_class}")
 
     if query_class not in ["rewrite", "expand", "decompose"]:
+        dbg.warning(f"Unknown query class '{query_class}', defaulting to 'rewrite'")
         query_class = "rewrite"
 
     optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
+    dbg.info(f"Optimizing user query ................ {user_query}")
+    dbg.info(f"Optimized query ............... {optimized_query}")
  
     return optimized_query
 
@@ -88,16 +97,24 @@ async def main ():
     while True:
         user_query = input("Enter your query (or type 'exit' to quit): ")
         if user_query.lower() == "exit":
+            dbg.info("Exiting manual input loop.")
             break
 
+        dbg.info(f"Received user input: {user_query}")
         query_class = await query_classifier(user_query)
         print(f"Classification: {query_class}")
+        dbg.info(f"Classification: {query_class}")
         if query_class not in ["rewrite", "expand", "decompose"]:
+            dbg.warning(f"Unknown classification '{query_class}', defaulting to 'rewrite'")
             query_class = "rewrite"
         else:
+            dbg.info("Classification recognized.")
             print("Unknown classification. No transformation applied.")
         
-        optimized_query = query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
+        optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
+        dbg.info(f"Optimized query: {optimized_query}")
+        print(f"Optimized Query: {optimized_query}")
         
 if __name__ == "__main__":
+    dbg.info("Starting manual input test.")
     asyncio.run(main())

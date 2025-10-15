@@ -5,7 +5,8 @@ from langchain_ollama import ChatOllama
 
 import weaviate_database.db_collection as ds
 import query_optimizer.query_transformer as qo
-from prompts.chat_prompt import CHAT_SYSTEM_PROMPT
+from prompts.chat_prompt import FINANCE_EXPERT_SYSTEM_PROMPTS
+from debug.logger_config import dbg
 
 chat_response_llm = ChatOllama(
     model="llama3.2:latest",
@@ -36,17 +37,52 @@ async def chat_with_user(user_query: str) -> str:
         2. Retrieves contextual data from a vector database using the optimized query.
         3. Generates a comprehensive answer by combining the retrieved context with the original user query.
     """
-    system_message = SystemMessage(content=CHAT_SYSTEM_PROMPT)
+    system_message = SystemMessage(content=FINANCE_EXPERT_SYSTEM_PROMPTS["V2"])
 
     opt_user_query = await qo.query_optimizer(user_query)
-    # human_message = await get_contextual_data(opt_user_query)
     context = await ds.get_context_from_vector_db(opt_user_query)
     human_message = HumanMessage(content="\n".join(context))
-
     human_message.content += f"\n\nUser's Query: {user_query}\n Answer:"
-    # response = chat_response_llm.invoke([system_message, human_message])
-    response = chat_response_llm.ainvoke([system_message, human_message])
-    return response.content
+
+    CHUNK_SIZE: int = 128
+    buffer: str = ""
+
+    async for chunk in chat_response_llm.astream([system_message, human_message]):
+        content = chunk.content
+            
+        # 2. Only accumulate if the chunk is a non-empty string
+        if isinstance(content, str) and content:
+            buffer += content
+        else:
+            continue
+        # 3. Calculate and yield complete chunks
+        # This calculates how many full CHUNK_SIZE batches we have
+        chunks_to_yield = len(buffer) // CHUNK_SIZE
+        
+        if chunks_to_yield > 0:
+            data_to_yield_len = chunks_to_yield * CHUNK_SIZE
+            
+            # Yield the complete part
+            yield buffer[:data_to_yield_len]
+            
+            # Keep the leftover part in the buffer
+            buffer = buffer[data_to_yield_len:]
+            
+        # 4. Yield the remaining content after the stream ends
+    if buffer:
+        yield buffer
+
+    # # response = chat_response_llm.invoke([system_message, human_message])
+    # CHUNK_SIZE = 128
+    # buffer = ""
+    # async for chunk in chat_response_llm.astream([system_message, human_message]):
+    #     buffer += chunk.content
+    #     while len(buffer) >= CHUNK_SIZE:
+    #         dbg.info(f"Chat Response Chunk: {buffer[:CHUNK_SIZE]}")
+    #         yield buffer[:CHUNK_SIZE]
+    #         buffer = buffer[CHUNK_SIZE:]
+    # if buffer:
+    #     yield buffer
 
 ############# Test code for chat_with_user ############# 
 # p3 -m rag.app

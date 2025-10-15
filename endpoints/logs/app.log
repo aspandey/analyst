@@ -1,0 +1,9 @@
+2025-10-15 12:31:44,676 [INFO] (APP_LOGGER) [logger_config.py:42]: Custom logger 'dbg' initialized successfully.
+2025-10-15 12:31:48,754 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:33:03,900 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:35:10,062 [INFO] (APP_LOGGER) [logger_config.py:42]: Custom logger 'dbg' initialized successfully.
+2025-10-15 12:35:22,256 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:37:47,867 [INFO] (APP_LOGGER) [logger_config.py:37]: Custom logger 'dbg' initialized successfully.
+2025-10-15 12:39:28,636 [INFO] (APP_LOGGER) [logger_config.py:37]: Custom logger 'dbg' initialized successfully.
+2025-10-15 12:39:37,050 [INFO] (APP_LOGGER) [chat.py:17]: Received message: Hello
+2025-10-15 12:42:19,942 [INFO] (APP_LOGGER) [logger_config.py:37]: Custom logger 'APP_LOGGER' initialized. Log file path: /Users/soumyashreeswain/factory/public/analyst/endpoints/logs/app.log
