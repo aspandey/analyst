@@ -1,13 +1,27 @@
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
-from rag.chat_functions import chat_with_user
+from rag.chat_functions import app_stocks_info
 import uvicorn
 
 from debug.logger_config import dbg
 from fastapi.responses import StreamingResponse
+
+from fastapi.middleware.cors import CORSMiddleware
+
 app = FastAPI()
 
-@app.post("/chat")
+
+# For development allow the UI origin (or use ["*"] temporarily)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"],  # or ["*"] for quick dev
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post("/stocks_info")
 async def chat_endpoint(request: Request):
     data = await request.json()
     user_message = data.get("message")
@@ -18,7 +32,7 @@ async def chat_endpoint(request: Request):
 
     async def stream_response():
         # Assuming chat_with_user yields chunks of text
-        async for chunk in chat_with_user(user_message):
+        async for chunk in app_stocks_info(user_message):
             yield chunk
 
     return StreamingResponse(stream_response(), media_type="text/plain")
@@ -27,5 +41,5 @@ async def chat_endpoint(request: Request):
 if __name__ == "__main__":
     uvicorn.run("endpoints.chat:app", host="0.0.0.0", port=8000, reload=True)
 
-# Example curl command to test the /chat endpoint:
-# curl -X POST "http://localhost:8000/chat" -H "Content-Type: application/json" -d '{"message": "Hello"}'
+# Example curl command to test the /stocks_info endpoint:
+# curl -X POST "http://localhost:8000/stocks_info" -H "Content-Type: application/json" -d '{"message": "Hello"}'

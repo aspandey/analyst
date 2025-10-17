@@ -39,6 +39,7 @@ FINANCE_EXPERT_SYSTEM_PROMPT_V2 = """
 
         **FINAL OUTPUT FORMATTING:**
         The response must be **concise, human-readable, and directly answer the user's query**. Present the extracted information clearly, using appropriate formatting (e.g., lists, tables, or natural language sentences) to maximize readability.
+        Always prioritize clarity and precision in your responses. Use proper new lines and paragraphs to formate your response
         """
 
 FINANCE_EXPERT_SYSTEM_PROMPTS: dict[str, str] = {
