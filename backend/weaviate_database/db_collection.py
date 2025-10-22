@@ -1,4 +1,5 @@
 import weaviate
+
 from weaviate.classes.config import Configure
 from weaviate.client import WeaviateClient
 from weaviate.outputs.query import QueryReturn

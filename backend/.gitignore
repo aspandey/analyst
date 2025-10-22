@@ -1,0 +1,40 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+venv/
+.venv/
+env/
+.env/
+
+# Environment and configuration files
+.env
+*.ini
+*.cfg
+*.yaml
+*.yml
+
+# Logs
+*.log
+*.out
+
+# Cache and temporary files
+*.bak
+*.tmp
+*.swp
+.cache/
+.mypy_cache/
+.pytest_cache/
+.coverage
+
+# IDEs
+.idea/
+.vscode/
+
+# Build / distribution
+build/
+dist/
+*.egg-info/
+

@@ -9,3 +9,28 @@ wheels/
 # Virtual environments
 .venv
 stocks_xlsx
+
+# OS / Editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*.temp
+*.bak
+
+# Environment and secrets
+.env
+.env.local
+.env.*.local
+
+# Python and Node build folders (if created accidentally at root)
+__pycache__/
+node_modules/
+dist/
+build/
+
