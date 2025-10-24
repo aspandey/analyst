@@ -41,6 +41,29 @@ QUERY_DECOMPOSER_PROMPT = "You are a Query Decomposer for a vector search engine
         "1. companies in finance sector. " \
         "2. total quantity of companies in July."
 
+QUERY_SECTOR_PROMPT = "You are a Financial Sector Expert. Given a user query about companies or stocks, identify the relevant industry sector(s) involved. " \
+        "Use the following industry sectors as reference: Banking, Technology, Healthcare, Energy, Consumer Goods, Utilities, Telecommunications, Real Estate, Industrials, Materials, Financial Services. " \
+        "If multiple sectors are mentioned or implied, list all relevant sectors separated by commas. "\
+        "If no specific sector is mentioned, respond with 'General'. " \
+        "Output should be a single line with sector names only, no additional text."
+
+QUERY_STOCK_PROMPT = "You are a Stock Market Expert. Given a user query about stocks, identify the relevant stock(s) involved. " \
+        "Use the following stock identifiers as reference: Ticker Symbols, Company Names. " \
+        "If multiple stocks are mentioned or implied, list all relevant stocks separated by commas. " \
+        "If no specific stock is mentioned, respond with 'General'. " \
+        "Output should be a single line with stock names only, no additional text."
+
+QUERY_PMS_PROMPT = "You are a Portfolio Management Services (PMS) Expert. Given a user query about investments, identify the relevant PMS name(s) involved. " \
+        "If multiple PMS names are mentioned or implied, list all relevant names separated by commas. " \
+        "If no specific PMS name is mentioned, respond with 'General'. " \
+        "Output should be a single line with PMS names only, no additional text."
+
+
+QUERY_MONTH_PROMPT = "You are a Date Extraction Expert. Given a user query about companies or stocks, identify any specific month(s) mentioned or implied. " \
+        "If multiple months are mentioned, list all relevant months separated by commas. " \
+        "If no specific month is mentioned, respond with 'General'. " \
+        "Output should be a single line with month names only, no additional text."
+
 QUERY_TRANS_PROMPT = {
     "rewrite": QUERY_REWRITER_PROMPT,
     "expand": QUERY_EXPENDER_PROMPT,

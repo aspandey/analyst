@@ -19,6 +19,21 @@ chat_response_llm = ChatOllama(
     reasoning=False
     )
 
+# Add this helper at module level so you can test it directly
+async def stream_response_with_context(
+    context: list[str], user_query: str, system_message: SystemMessage
+) -> AsyncGenerator[str, None]:
+    human_message = HumanMessage(
+        content="\n".join(context) + f"\n\nUser's Query: {user_query}\nAnswer:"
+    )
+
+    async for chunk in chat_response_llm.astream([system_message, human_message]):
+        content = getattr(chunk, "content", None)
+        if not isinstance(content, str) or not content:
+            continue
+        yield content
+
+
 async def app_stocks_info(user_query: str) -> AsyncGenerator[str, None]:
     """
     Asynchronously streams an AI-generated response to a user query 
@@ -40,38 +55,9 @@ async def app_stocks_info(user_query: str) -> AsyncGenerator[str, None]:
     # 1. Optimize user query and fetch contextual information
     optimized_query = await qo.query_optimizer(user_query)
     context = await ds.get_context_from_vector_db(optimized_query)
-
-    # 2. Prepare human message with retrieved context
-    human_message = HumanMessage(
-        content="\n".join(context) + f"\n\nUser's Query: {user_query}\nAnswer:"
-    )
-
-    CHUNK_SIZE = 128
-    buffer = ""
-
-    # 3. Stream and yield chunks as they arrive
-    # async for chunk in chat_response_llm.astream([system_message, human_message]):
-    #     content = getattr(chunk, "content", None)
-    #     if not isinstance(content, str) or not content:
-    #         continue
-
-    #     buffer += content
-
-    #     # If we have full chunks, yield them
-    #     while len(buffer) >= CHUNK_SIZE:
-    #         yield buffer[:CHUNK_SIZE]
-    #         buffer = buffer[CHUNK_SIZE:]
-
-    # # 4. Yield any remaining text after stream ends
-    # if buffer:
-    #     yield buffer
-
-    async for chunk in chat_response_llm.astream([system_message, human_message]):
-        content = getattr(chunk, "content", None)
-        if not isinstance(content, str) or not content:
-            continue
-
-        yield content
+    new_context = context[::-1]
+    async for chunk in stream_response_with_context(new_context, user_query, system_message):
+        yield chunk
 
 
 ############# Test code for chat_with_user ############# 
@@ -85,9 +71,12 @@ async def main():
         if user_input.lower() == "exit":
             print("Exiting chat.")
             break
+        async def stream_response():
+            async for chunk in app_stocks_info(user_input):
+                yield chunk
 
-        response = await chat_with_user(user_input)
-        print(f"\n +++++++++++++++++++++ AI Message +++++++++++++++++++++ \n {response} \n ")
+        printed_chunk = stream_response()
+        print(f"\n +++++++++++++++++++++ AI Message +++++++++++++++++++++ \n {printed_chunk} \n ")
 
 import asyncio
 

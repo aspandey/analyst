@@ -25,9 +25,9 @@ def get_logger():
         file_handler.setFormatter(formatter)
         dbg.addHandler(file_handler)
 
-        stream_handler = logging.StreamHandler(sys.stdout)
-        stream_handler.setFormatter(formatter)
-        dbg.addHandler(stream_handler)
+        # stream_handler = logging.StreamHandler(sys.stdout)
+        # stream_handler.setFormatter(formatter)
+        # dbg.addHandler(stream_handler)
 
         dbg.info(f"Custom logger '{LOGGER_NAME}' initialized. Log file path: {log_file}")
 

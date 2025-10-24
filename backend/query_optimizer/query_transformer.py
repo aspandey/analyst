@@ -82,9 +82,9 @@ async def query_optimizer(user_query: str) -> str:
     if query_class not in ["rewrite", "expand", "decompose"]:
         dbg.warning(f"Unknown query class '{query_class}', defaulting to 'rewrite'")
         query_class = "rewrite"
-
-    optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
+    
     dbg.info(f"Optimizing user query ................ {user_query}")
+    optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
     dbg.info(f"Optimized query ............... {optimized_query}")
  
     return optimized_query
