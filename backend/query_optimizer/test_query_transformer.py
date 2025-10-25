@@ -28,7 +28,7 @@ test_queries = [
     "I’m trying to figure out which companies in the finance industry were part of Helios PMS portfolio, and also check for the months of July and August, including their share quantities and market values if possible.",
 ]
 
-async def run_tests():
+async def run_transformation_test():
     print("\n================= Query Transformation Tests =================\n")
 
     results = []
@@ -64,4 +64,4 @@ async def run_tests():
 
 
 if __name__ == "__main__":
-    asyncio.run(run_tests())
+    asyncio.run(run_transformation_test())

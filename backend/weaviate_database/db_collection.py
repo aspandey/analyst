@@ -4,6 +4,7 @@ from weaviate.classes.config import Configure
 from weaviate.client import WeaviateClient
 from weaviate.outputs.query import QueryReturn
 import weaviate.classes.query as wq
+
 from weaviate.classes.query import HybridFusion
 
 from typing import Optional
@@ -27,15 +28,97 @@ VECTOR_NAMES = [
     "combined_text"
 ]
 
+FILTER_PROP_NAMES = [
+    "company_or_stock_name",
+    "industry_sector",
+    "data_month",
+    "portfolio_management_services_name",
+]
+
+SEARCHABLE_PROP_NAMES = ["combined_text"]
+
+NUMERIC_PROP_NAMES = [
+    "quantity_of_shares",
+    "market_value_lacs_inr",
+    "asset_under_managment_percentage"
+]
+
 properties_list  = [
     "company_or_stock_name",
     "industry_sector",
+    "portfolio_management_services_name",
+    "data_month",
+    "combined_text",
     "quantity_of_shares",
     "market_value_lacs_inr",
     "asset_under_managment_percentage",
-    "data_month",
-    "portfolio_management_services_name"
 ]
+
+def create_vector_config(vector_names: list) -> list:
+    """
+    Creates and returns vector configuration for the collection.
+    
+    Returns:
+        list: List of vector configurations for each named vector.
+    """
+    if not vector_names:
+        raise ValueError("Vector names list cannot be empty.")
+
+    vector_config = [
+        wc.Configure.Vectors.text2vec_ollama(
+            name=vec_name,
+            source_properties=[vec_name],
+            api_endpoint=OLLAMA_API_URL,
+            model=EMBEDDING_MODEL,
+            vector_index_config=Configure.VectorIndex.hnsw(
+                distance_metric=VectorDistances.COSINE,
+                ef_construction=128,
+                max_connections=32,
+                quantizer=Configure.VectorIndex.Quantizer.bq(),
+                ef=64,
+            ),
+        )
+        for vec_name in vector_names
+    ]
+    return vector_config
+
+
+def create_properties_config(properties_list: list) -> list:
+    """
+    Creates and returns property configuration for the collection.
+    
+    Args:
+        properties_list (list): List of property names to configure.
+    
+    Returns:
+        list: List of property configurations.
+    """
+    if not properties_list:
+        raise ValueError("Properties list cannot be empty.")
+    
+    property_configs = []
+    
+    for prop in properties_list:
+        if prop in FILTER_PROP_NAMES:
+            property_configs.append(
+                wc.Property(name=prop, data_type=wc.DataType.TEXT, index_filterable=True)
+            )
+        elif prop in SEARCHABLE_PROP_NAMES:
+            property_configs.append(
+                wc.Property(name=prop, data_type=wc.DataType.TEXT, index_searchable=True)
+            )
+        elif prop in NUMERIC_PROP_NAMES:
+            property_configs.append(
+                wc.Property(
+                    name=prop,
+                    data_type=wc.DataType.NUMBER,
+                    index_filterable=False,
+                    index_searchable=False,
+                    vectorize_property_name=False
+                )
+            )
+    
+    return property_configs
 
 class AppWeaviateClient:
     def __init__(self, host: str = "localhost", port: int = 8080, grpc_port: int = 50051):
@@ -107,42 +190,15 @@ class WeaviateCollection:
         if collection_name in self.list_collection:
             print(f"Collection '{collection_name}' already exists.")
             return
-        
-        vector_config = [
-            wc.Configure.Vectors.text2vec_ollama(
-                name="company_info",
-                # source_properties= VECTOR_NAMES,
-                source_properties= ["combined_text"],
-                api_endpoint=OLLAMA_API_URL,
-                model=EMBEDDING_MODEL,
-                vector_index_config=Configure.VectorIndex.hnsw(
-                    distance_metric=VectorDistances.COSINE,
-                    ef_construction=128,
-                    max_connections=32,
-                    quantizer=Configure.VectorIndex.Quantizer.bq(),
-                    ef=64,
-                ),
-            ),
-        ]
-        
+
+        vector_config = create_vector_config(vector_names=VECTOR_NAMES)
+        prop_config = create_properties_config(properties_list=properties_list)
+
         self.client.collections.create(
             name=collection_name,
-            properties=[
-                # Enable keyword indexing (inverted index) on relevant text properties
-                wc.Property(name="company_or_stock_name", data_type=wc.DataType.TEXT, index_filterable=True),
-                wc.Property(name="industry_sector", data_type=wc.DataType.TEXT, index_filterable=True),
-                wc.Property(name="portfolio_management_services_name", data_type=wc.DataType.TEXT, index_filterable=True),
-                wc.Property(name="data_month", data_type=wc.DataType.TEXT, index_filterable=True),
-
-                wc.Property(name="combined_text", data_type=wc.DataType.TEXT, index_searchable=True),
-                
-                wc.Property(name="quantity_of_shares", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-                wc.Property(name="market_value_lacs_inr", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-                wc.Property(name="asset_under_managment_percentage", data_type=wc.DataType.NUMBER, index_filterable=False, index_searchable=False, vectorize_property_name=False),
-            ],
+            properties=prop_config,
             vector_config=vector_config,
         )
-
 
     def delete_collection(self, collection_name: str) -> None:
         """
@@ -193,9 +249,9 @@ class WeaviateCollection:
             print(f"Number of failed imports: {len(failed_objects)}")
             print(f"First failed object: {failed_objects[0]}")
 
-    def retrieve_objects_for_query(self, collection_name: str, user_query: str, target_vector: str = "company_info") -> QueryReturn:
+    def retrieve_objects_for_query(self, collection_name: str, user_query: str, filters: dict, target_vector: str = "combined_text") -> QueryReturn:
         """
-        Queries and prints objects from a collection using a near-text search.
+        Queries and prints objects from a collection using a different type of search.
         Args:
             collection_name (str): Name of the collection to query.
             user_query (str): The query string to search for.
@@ -209,17 +265,37 @@ class WeaviateCollection:
 
             collection = self.client.collections.get(collection_name)
 
+
+            # Build filter from filters dict
+            filter_conditions = []
+            for key, values in filters.items():
+                # if values and len(values) > 0:
+                #     if len(values) == 1:
+                #         filter_conditions.append(wq.Filter.by_property(key).equal(values[0]))
+                #     else:
+                #         # OR condition for multiple values of same property
+                #         or_filters = [wq.Filter.by_property(key).equal(val) for val in values]
+                #         filter_conditions.append(wq.Filter.any_of(or_filters))
+
+                if key in FILTER_PROP_NAMES and values and len(values) > 0:
+                    dbg.info(f"Applying filter on property '{key}' with values: {values}")
+                    if len(values) == 1:
+                        filter_conditions.append(wq.Filter.by_property(key).equal(values[0]))
+                        break
+
+            # Combine all filter conditions with AND
+            # final_filter = wq.Filter.any_of(filter_conditions) if filter_conditions else None
+            # dbg.info(f"Final filter for query (type: {type(final_filter).__name__}): {final_filter}")
+
             response = collection.query.hybrid(
                 query=user_query,
-                # vector= vector of the query to be used for vector seracg
                 query_properties=VECTOR_NAMES,
                 max_vector_distance=0.6,
-                alpha=0.7,
+                alpha=0.25,
                 limit=5000,
                 fusion_type=HybridFusion.RELATIVE_SCORE,
-                # auto_limit=True,
                 target_vector=target_vector,
-                filters=None,
+                filters=wq.Filter.any_of(filter_conditions) if filter_conditions else None,
                 return_metadata=wq.MetadataQuery(score=True, explain_score=True, certainty=True),
                 return_properties=["combined_text"],
             )
@@ -257,17 +333,9 @@ class WeaviateCollection:
 
         print(f"Total {len(response.objects)} objects retrieved from collection '{COLLECTION_NAME}'")
 
+
 def format_investment_summary(data_dict: dict[str, str]) -> str:
-    """
-    Converts a dictionary containing financial data into a human-readable summary string.
-
-    Args:
-        data_dict: A dictionary containing specific keys like 'company_or_stock_name',
-                   'industry_sector', 'data_month', etc.
-
-    Returns:
-        A formatted string summarizing the investment data.
-    """
+    """Return a short summary from the investment data dict."""
     try:
         combined_text = data_dict.get("combined_text", "")
         dbg.info(f"Combined Text: {combined_text}")
@@ -281,7 +349,7 @@ def format_investment_summary(data_dict: dict[str, str]) -> str:
 
     
 # async def get_context_from_vector_db(user_query_str: str) -> list[dict[str, str]]:
-async def get_context_from_vector_db(user_query_str: str) -> list[str]:
+async def get_context_from_vector_db(user_query_str: str, query_filters: dict) -> list[str]:
 
     db_config  = {"host": "127.0.0.1", "port": 80, "grpc_port": 50051}
     COLLECTION_NAME = "StocksInfo"
@@ -291,7 +359,7 @@ async def get_context_from_vector_db(user_query_str: str) -> list[str]:
     with AppWeaviateClient(**db_config) as cl:
 
         col = WeaviateCollection(client=cl)
-        response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query_str.lower())
+        response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query_str.lower(), filters=query_filters)
 
         if not response or not response.objects:
             return context_list
@@ -299,7 +367,7 @@ async def get_context_from_vector_db(user_query_str: str) -> list[str]:
         for obj in response.objects:
             count += 1
             score = obj.metadata.score if obj.metadata and obj.metadata.score else 0.0
-            if score < 0.2:
+            if score < 0.3:
                 continue
             
             select += 1

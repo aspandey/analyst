@@ -16,7 +16,9 @@ chat_response_llm = ChatOllama(
     # model = "deepseek-r1:1.5b",
     base_url="http://localhost:11434",
     temperature=0.4,
-    reasoning=False
+    reasoning=False,
+    num_ctx=10000,
+    num_predict=20480
     )
 
 # Add this helper at module level so you can test it directly
@@ -24,7 +26,14 @@ async def stream_response_with_context(
     context: list[str], user_query: str, system_message: SystemMessage
 ) -> AsyncGenerator[str, None]:
     human_message = HumanMessage(
-        content="\n".join(context) + f"\n\nUser's Query: {user_query}\nAnswer:"
+        # content="\n".join(context) + f"\n\nUser's Query: {user_query}\nAnswer:"
+        content=(
+        "You are given the following context information:\n\n"
+        + "\n".join(context)
+        + f"\n\nUser question: {user_query}\n\n"
+        "Using only the information above, provide a complete and concise answer.\n"
+        "Use complete information in the context. If the information is missing, say 'Not enough information in context.'"
+    )
     )
 
     async for chunk in chat_response_llm.astream([system_message, human_message]):
@@ -53,9 +62,12 @@ async def app_stocks_info(user_query: str) -> AsyncGenerator[str, None]:
     system_message = SystemMessage(content=FINANCE_EXPERT_SYSTEM_PROMPTS["V2"])
 
     # 1. Optimize user query and fetch contextual information
-    optimized_query = await qo.query_optimizer(user_query)
-    context = await ds.get_context_from_vector_db(optimized_query)
-    new_context = context[::-1]
+    optimized_query = await qo.query_optimizer(user_query, "rewrite")
+    query_filters = await qo.query_filter_struct(optimized_query)
+    context = await ds.get_context_from_vector_db(optimized_query, query_filters)
+    
+    new_context = context
+    # new_context = context[::-1]
     async for chunk in stream_response_with_context(new_context, user_query, system_message):
         yield chunk
 

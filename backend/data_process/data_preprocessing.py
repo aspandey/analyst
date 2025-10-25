@@ -60,8 +60,7 @@ def data_preprocess_stock(stocks_info: list[dict[str, str]]) -> list[dict[str, s
         aum_text = format_field(item.get("asset_under_managment_percentage", ""), "percent of total assets of pms")
 
         combined_text = (
-            f"{company} works in {sector} sector. {pms} pms holds {qty_text} of {company} "
-            f"in the month of {month} with {value_text}, representing {aum_text}."
+            f"{company} works in {sector} sector. {pms} pms holds {qty_text} of {company} in the month of {month} with {value_text}, representing {aum_text}."
         ).strip()
 
         processed_data.append({

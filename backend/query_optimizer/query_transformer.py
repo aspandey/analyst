@@ -1,10 +1,11 @@
+import json
 from langchain_core.messages import BaseMessage
 from langchain_core.messages import HumanMessage
 from langchain_core.messages import SystemMessage
 from langchain_ollama import ChatOllama
 import asyncio
 from debug.logger_config import dbg
-from prompts.query_prompt import QUERY_TRANS_PROMPT, QUERY_CLASSIFIER_PROPMT
+from prompts.query_prompt import QUERY_TRANS_PROMPT, QUERY_CLASSIFIER_PROPMT, QUERY_ANALYZE_PROMPT
 
 query_optimizer_llm = ChatOllama(
     model="llama3.2:latest",
@@ -60,7 +61,43 @@ async def query_transformer(user_input: str, transformer: str) -> str:
     return res
 
 
-async def query_optimizer(user_query: str) -> str:
+async def query_filter_struct(user_input: str) -> dict:
+    """
+    Asynchronously extracts filters from user input using an LLM.
+
+    Args:
+        user_input (str): The input query from the user.
+
+    Returns:
+        dict: A dictionary containing filters from the input.
+                Returns empty dict if parsing fails.
+    """
+    system_message = SystemMessage(content=QUERY_ANALYZE_PROMPT)
+    human_message = HumanMessage(content=user_input)
+
+    try:
+        response = query_optimizer_llm.invoke([system_message, human_message])
+        dbg.debug(f"LLM response for filter extraction: {response}")
+        res = response.content
+        
+        # Parse JSON response
+        if isinstance(res, str):
+            parsed_response = json.loads(res)
+        else:
+            parsed_response = res
+        
+        dbg.info(f"Parsed filter structure: {parsed_response}")
+        return parsed_response
+    
+    except json.JSONDecodeError as e:
+        dbg.error(f"Failed to parse JSON from LLM response: {e}. Response: {res}")
+        return {}
+    except Exception as e:
+        dbg.error(f"Error in query_filter_struct: {e}")
+        return {}
+
+
+async def query_optimizer(user_query: str, query_class: str) -> str:
     """
     Optimizes a user-provided query by classifying its type and transforming it accordingly.
     Args:
@@ -76,7 +113,8 @@ async def query_optimizer(user_query: str) -> str:
     """
     optimized_query: str = ""
 
-    query_class = await query_classifier(user_query)
+    if query_class == "":
+        query_class = await query_classifier(user_query)
     dbg.info(f"Query transformer class ............... {query_class}")
 
     if query_class not in ["rewrite", "expand", "decompose"]:
@@ -101,19 +139,21 @@ async def main ():
             break
 
         dbg.info(f"Received user input: {user_query}")
-        query_class = await query_classifier(user_query)
-        print(f"Classification: {query_class}")
-        dbg.info(f"Classification: {query_class}")
-        if query_class not in ["rewrite", "expand", "decompose"]:
-            dbg.warning(f"Unknown classification '{query_class}', defaulting to 'rewrite'")
-            query_class = "rewrite"
-        else:
-            dbg.info("Classification recognized.")
-            print("Unknown classification. No transformation applied.")
+        # query_class = await query_classifier(user_query)
+        # print(f"Classification: {query_class}")
+        # dbg.info(f"Classification: {query_class}")
+        # if query_class not in ["rewrite", "expand", "decompose"]:
+        #     dbg.warning(f"Unknown classification '{query_class}', defaulting to 'rewrite'")
+        #     query_class = "rewrite"
+        # else:
+        #     dbg.info("Classification recognized.")
+        #     print("Unknown classification. No transformation applied.")
         
-        optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
-        dbg.info(f"Optimized query: {optimized_query}")
-        print(f"Optimized Query: {optimized_query}")
+        # optimized_query = await query_transformer(user_query, QUERY_TRANS_PROMPT[query_class])
+        # dbg.info(f"Optimized query: {optimized_query}")
+        # print(f"Optimized Query: {optimized_query}")
+        filters_and_semantic = await query_filter_struct(user_query)
+        dbg.info(f"Filters and Semantic Query: {filters_and_semantic}")
         
 if __name__ == "__main__":
     dbg.info("Starting manual input test.")

@@ -1,6 +1,8 @@
 from weaviate_database.db_collection import AppWeaviateClient, WeaviateCollection
 import data_process.parse_xlsx_sheet as pe
 import data_process.data_preprocessing as data
+import rag.chat_functions as chat_funcs
+import asyncio
 
 def db_test():
     db_config  = {"host": "127.0.0.1", "port": 80, "grpc_port": 50051}
@@ -37,20 +39,18 @@ def db_test():
                     continue
                 col.delete_collection(COLLECTION_NAME)
                 print(f"Collection '{COLLECTION_NAME}' deleted (if it existed).")
-
             elif action == "3":
                 COLLECTION_NAME = input("Enter collection name (default 'StocksInfo'): ").strip() or "StocksInfo"
                 user_query = input("Enter your query: ").strip()
-                response = col.retrieve_objects_for_query(COLLECTION_NAME, user_query.lower(), target_vector="company_info")
-                if not response or not response.objects:
-                    print("No results found.")
-                    continue
-                count = 0
-                for obj in response.objects:
-                    print(f"\n {obj} \n")
-                    count += 1
-                    print(f"count = {count}")
 
+                async def process_query():
+                    async for chunk in chat_funcs.app_stocks_info(user_query):
+                        print(chunk, end='', flush=True)
+                    print()  # Add newline after streaming is complete
+                
+                asyncio.run(process_query())
+                print()  # Add newline after streaming is complete
+                
             elif action == "4":
                 collections = col.list_collection
                 print("Collections in Weaviate:")

@@ -36,33 +36,26 @@ QUERY_DECOMPOSER_PROMPT = "You are a Query Decomposer for a vector search engine
         "Each sub-query should represent a single intent or a distinct piece of information that can be searched independently. " \
         "Keep each sub-query short, clear, and in logical order. " \
         "Avoid conversational words, filler text, or long sentences. " \
-        "Output should be sub queries only. No conversation. Maximum 3 subqueries." \
+        "Output only the sub-queries, nothing else. No explanations, no conversation, no extra text. Maximum 3 subqueries. " \
+        "Format: numbered list of sub-queries only. " \
         "Example: 'Show me all companies in the finance sector and their total quantity in July' → " \
-        "1. companies in finance sector. " \
-        "2. total quantity of companies in July."
+        "1. companies in finance sector " \
+        "2. total quantity of companies in July"
 
-QUERY_SECTOR_PROMPT = "You are a Financial Sector Expert. Given a user query about companies or stocks, identify the relevant industry sector(s) involved. " \
-        "Use the following industry sectors as reference: Banking, Technology, Healthcare, Energy, Consumer Goods, Utilities, Telecommunications, Real Estate, Industrials, Materials, Financial Services. " \
-        "If multiple sectors are mentioned or implied, list all relevant sectors separated by commas. "\
-        "If no specific sector is mentioned, respond with 'General'. " \
-        "Output should be a single line with sector names only, no additional text."
+QUERY_ANALYZE_PROMPT = (
+        "You are a query analyzer for a vector database with the following schema: "
+        "company_or_stock_name, industry_sector, data_month, portfolio_management_services_name. "
+        "Split the user's query into: "
+        "'filters' — structured field filters (each field can have one or more values). "
+        "If the user mentions multiple months, PMS names, or sectors, include them all as a list. "
+        "If there is no mention of a field, do not include it in 'filters'. "
+        "Output only valid JSON, nothing else. No explanations, no markdown, no code blocks. "
+        "Example: "  
+        "User: 'Show me finance sector companies managed by Helios PMS during July and August' "
+        "Output: {\"filters\": {\"data_month\": [\"July\", \"August\"], "
+        "\"portfolio_management_services_name\": [\"Helios\"]}, "
+)
 
-QUERY_STOCK_PROMPT = "You are a Stock Market Expert. Given a user query about stocks, identify the relevant stock(s) involved. " \
-        "Use the following stock identifiers as reference: Ticker Symbols, Company Names. " \
-        "If multiple stocks are mentioned or implied, list all relevant stocks separated by commas. " \
-        "If no specific stock is mentioned, respond with 'General'. " \
-        "Output should be a single line with stock names only, no additional text."
-
-QUERY_PMS_PROMPT = "You are a Portfolio Management Services (PMS) Expert. Given a user query about investments, identify the relevant PMS name(s) involved. " \
-        "If multiple PMS names are mentioned or implied, list all relevant names separated by commas. " \
-        "If no specific PMS name is mentioned, respond with 'General'. " \
-        "Output should be a single line with PMS names only, no additional text."
-
-
-QUERY_MONTH_PROMPT = "You are a Date Extraction Expert. Given a user query about companies or stocks, identify any specific month(s) mentioned or implied. " \
-        "If multiple months are mentioned, list all relevant months separated by commas. " \
-        "If no specific month is mentioned, respond with 'General'. " \
-        "Output should be a single line with month names only, no additional text."
 
 QUERY_TRANS_PROMPT = {
     "rewrite": QUERY_REWRITER_PROMPT,
