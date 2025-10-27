@@ -17,8 +17,8 @@ chat_response_llm = ChatOllama(
     base_url="http://localhost:11434",
     temperature=0.4,
     reasoning=False,
-    num_ctx=10000,
-    num_predict=20480
+    num_ctx=4096,
+    num_predict=4096
     )
 
 # Add this helper at module level so you can test it directly
@@ -67,9 +67,17 @@ async def app_stocks_info(user_query: str) -> AsyncGenerator[str, None]:
     context = await ds.get_context_from_vector_db(optimized_query, query_filters)
     
     new_context = context
+    new_context = list(set(context))  # Remove duplicate items from the context list
+    # Stream the retrieved context items instead of LLM chunks
+    if not new_context:
+        return
+    for item in new_context:
+        if item is None:
+            continue
+        yield (item if isinstance(item, str) else str(item)) + "\n"
     # new_context = context[::-1]
-    async for chunk in stream_response_with_context(new_context, user_query, system_message):
-        yield chunk
+    # async for chunk in stream_response_with_context(new_context, user_query, system_message):
+    #     yield chunk
 
 
 ############# Test code for chat_with_user ############# 

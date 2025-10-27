@@ -295,9 +295,9 @@ class WeaviateCollection:
                 limit=5000,
                 fusion_type=HybridFusion.RELATIVE_SCORE,
                 target_vector=target_vector,
-                filters=wq.Filter.any_of(filter_conditions) if filter_conditions else None,
+                filters=wq.Filter.all_of(filter_conditions) if filter_conditions else None,
                 return_metadata=wq.MetadataQuery(score=True, explain_score=True, certainty=True),
-                return_properties=["combined_text"],
+                return_properties=["company_or_stock_name"],
             )
 
         except Exception as e:
@@ -337,9 +337,9 @@ class WeaviateCollection:
 def format_investment_summary(data_dict: dict[str, str]) -> str:
     """Return a short summary from the investment data dict."""
     try:
-        combined_text = data_dict.get("combined_text", "")
-        dbg.info(f"Combined Text: {combined_text}")
-
+        combined_text = data_dict.get("company_or_stock_name", "")
+        # dbg.info(f"Combined Text: {combined_text}")
+        dbg.info(f"Formatting summary for company: {combined_text}")
         return combined_text
 
     except KeyError as e:
