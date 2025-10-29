@@ -1,2 +1,3 @@
 import weaviate_database.db_collection
 import data_process.parse_xlsx_sheet
+import weaviate_database.db_functions

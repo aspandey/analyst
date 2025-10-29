@@ -4,6 +4,11 @@ QUERY_CLASSIFIER_PROPMT = "You are a query classifier for a vector search engine
         "1. rewrite - Optimize verbose, conversational, or unclear queries into short, concise, schema-aligned keywords.\n" \
         "2. expand - Enrich short or vague queries with related keywords, synonyms, or semantically relevant phrases.\n" \
         "3. decompose - Split multi-intent or complex queries into smaller, focused sub-queries.\n" \
+        " The query is being asked in the context of a vector database with the following schema: " \
+        "'company_or_stock_name`, `industry_sector`, `data_month`, `portfolio_management_services " \
+        "where x is company_or_stock_name, y is industry_sector, z is data_month and w is portfolio_management_services_name. " \
+        " x is working in an industry y and the data is for the month z and managed by w pms or mutual fund. " \
+        "DO NOT explain or give reasons for your classification. " \
         "Output only one word: rewrite, expand, or decompose."
 
 
@@ -42,21 +47,28 @@ QUERY_DECOMPOSER_PROMPT = "You are a Query Decomposer for a vector search engine
         "1. companies in finance sector " \
         "2. total quantity of companies in July"
 
-QUERY_ANALYZE_PROMPT = (
+QUERY_CREATE_FILTER_PROMPT = (
         "You are a query analyzer for a vector database with the following schema: "
         "company_or_stock_name, industry_sector, data_month, portfolio_management_services_name. "
+        "Your task is ONLY to extract filter information from the user's query based on these exact fields. "
+        # "DO NOT search the web. DO NOT add external information. DO NOT make assumptions beyond what's explicitly stated. "
         "Split the user's query into: "
-        "'filters' — structured field filters (each field can have one or more values). "
-        "If the user mentions multiple months, PMS names, or sectors, include them all as a list. "
+        "'filters' — structured field filters with their logical operators. "
+        "For each field, determine whether the values should be combined with 'AND' (all must match) or 'OR' (any can match). "
+        "If the user mentions multiple months, PMS names, or sectors, include them all as a list with the appropriate operator. "
         "If there is no mention of a field, do not include it in 'filters'. "
-        "Output only valid JSON, nothing else. No explanations, no markdown, no code blocks. "
-        "Example: "  
+        "Output ONLY valid JSON, nothing else. No explanations, no markdown, no code blocks, no additional text. "
+        "Use ONLY the information provided in the user's query. "
+        "Example 1: "  
         "User: 'Show me finance sector companies managed by Helios PMS during July and August' "
-        "Output: {\"filters\": {\"data_month\": [\"July\", \"August\"], "
-        "\"portfolio_management_services_name\": [\"Helios\"]}, "
+        "Output: {\"filters\": {\"data_month\": {\"values\": [\"July\", \"August\"], \"operator\": \"OR\"}, "
+        "\"portfolio_management_services_name\": {\"values\": [\"Helios\"], \"operator\": \"OR\"}, "
+        "\"industry_sector\": {\"values\": [\"finance\"], \"operator\": \"OR\"}}} "
+        "Example 2: "
+        "User: 'Companies in both finance and technology sectors managed by Helios and Marcellus' "
+        "Output: {\"filters\": {\"industry_sector\": {\"values\": [\"finance\", \"technology\"], \"operator\": \"AND\"}, "
+        "\"portfolio_management_services_name\": {\"values\": [\"Helios\", \"Marcellus\"], \"operator\": \"OR\"}}}"
 )
-
-
 QUERY_TRANS_PROMPT = {
     "rewrite": QUERY_REWRITER_PROMPT,
     "expand": QUERY_EXPENDER_PROMPT,
